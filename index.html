@@ -700,6 +700,7 @@ async function exportTradeImage(){
     }
   } catch(e){
     document.getElementById('export-overlay')?.remove();
+    alert('エラー: '+e.message);
     showToast('生成に失敗しました','#e24b4a');
   }
 }
