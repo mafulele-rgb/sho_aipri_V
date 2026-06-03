@@ -546,9 +546,10 @@ async function exportTradeImage(){
     // 全画像を並列取得
     await Promise.all(trades.map(({item})=>imgToBase64(item.image||'')));
 
-    // Canvas描画
-    const THUMB=56,PAD=14,GAP=8,ROW_H=78,W=360;
-    const H=PAD*2+32+trades.length*(ROW_H+GAP);
+    // Canvas描画（2列グリッド）
+    const COLS=2,THUMB=48,PAD=12,GAP=8,CARD_W=172,CARD_H=110,W=376;
+    const rows=Math.ceil(trades.length/COLS);
+    const H=PAD*2+28+rows*(CARD_H+GAP);
     const canvas=document.createElement('canvas');
     canvas.width=W*2;canvas.height=H*2;
     const ctx=canvas.getContext('2d');
@@ -559,49 +560,63 @@ async function exportTradeImage(){
     ctx.fillStyle='#f472b6';ctx.font='bold 15px sans-serif';
     ctx.fillText('交換リスト（'+trades.length+'件）',PAD,PAD+15);
 
-    let y=PAD+28;
-    for(const {danId,item,extras} of trades){
+    for(let i=0;i<trades.length;i++){
+      const {danId,item,extras}=trades[i];
+      const col=i%COLS;
+      const row=Math.floor(i/COLS);
+      const x=PAD+col*(CARD_W+GAP);
+      const y=PAD+28+row*(CARD_H+GAP);
+
       // カード背景
       ctx.fillStyle='#fffbeb';
-      roundRect(ctx,PAD,y,W-PAD*2,ROW_H,8);ctx.fill();
+      roundRect(ctx,x,y,CARD_W,CARD_H,8);ctx.fill();
       ctx.strokeStyle='#fde68a';ctx.lineWidth=1;
-      roundRect(ctx,PAD,y,W-PAD*2,ROW_H,8);ctx.stroke();
+      roundRect(ctx,x,y,CARD_W,CARD_H,8);ctx.stroke();
 
-      // サムネイル
+      // サムネイル（左側中央）
       const b64=imgCache[item.image||''];
+      const ix=x+6,iy=y+(CARD_H-THUMB)/2;
       if(b64){
         const img=new Image();
         await new Promise(r=>{img.onload=r;img.onerror=r;img.src=b64;});
         ctx.save();
-        roundRect(ctx,PAD+8,y+11,THUMB,THUMB,6);ctx.clip();
-        ctx.drawImage(img,PAD+8,y+11,THUMB,THUMB);
+        roundRect(ctx,ix,iy,THUMB,THUMB,6);ctx.clip();
+        ctx.drawImage(img,ix,iy,THUMB,THUMB);
         ctx.restore();
       } else {
         ctx.fillStyle='#fdf2f8';
-        roundRect(ctx,PAD+8,y+11,THUMB,THUMB,6);ctx.fill();
+        roundRect(ctx,ix,iy,THUMB,THUMB,6);ctx.fill();
       }
 
-      // テキスト
-      const tx=PAD+8+THUMB+10;
-      ctx.fillStyle='#9ca3af';ctx.font='10px sans-serif';
-      ctx.fillText(danId,tx,y+20);
-      ctx.fillStyle='#374151';ctx.font='bold 13px sans-serif';
-      const name=item.name.length>17?item.name.slice(0,17)+'…':item.name;
-      ctx.fillText(name,tx,y+36);
+      // テキスト（右側）
+      const tx=x+6+THUMB+7;
+      const maxW=CARD_W-THUMB-20;
+      ctx.fillStyle='#9ca3af';ctx.font='9px sans-serif';
+      ctx.fillText(danId,tx,y+14);
+      ctx.fillStyle='#374151';ctx.font='bold 11px sans-serif';
+      // 名前を最大幅で折り返し
+      const words=item.name;
+      let line='',ty=y+27;
+      for(const ch of words){
+        if(ctx.measureText(line+ch).width>maxW){
+          ctx.fillText(line,tx,ty);ty+=14;line=ch;
+        } else { line+=ch; }
+      }
+      ctx.fillText(line,tx,ty);
 
-      // パーツチップ
-      let cx=tx;
+      // パーツチップ（下部）
+      let cx=x+6,cy=y+CARD_H-22;
       for(const p of extras){
         const label=p+' +'+(item[p]-1);
-        ctx.font='11px sans-serif';
+        ctx.font='9px sans-serif';
         const tw=ctx.measureText(label).width;
+        if(cx+tw+12>x+CARD_W-4){cx=x+6;cy-=16;}
         ctx.fillStyle='#fef3c7';
-        roundRect(ctx,cx,y+44,tw+14,20,6);ctx.fill();
+        roundRect(ctx,cx,cy,tw+10,14,4);ctx.fill();
         ctx.fillStyle='#92400e';
-        ctx.fillText(label,cx+7,y+57);
-        cx+=tw+20;
+        ctx.fillText(label,cx+5,cy+10);
+        cx+=tw+14;
       }
-      y+=ROW_H+GAP;
     }
 
     const dataUrl=canvas.toDataURL('image/jpeg',0.92);
