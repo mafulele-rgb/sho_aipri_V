@@ -581,26 +581,7 @@ async function exportTradeImage(){
   document.body.appendChild(overlay);
 
   try{
-    // 全画像URLを収集
-    const imageUrls=[...new Set(trades.map(({item})=>item.image||'').filter(u=>u))];
-    
-    // GASから全画像を一括取得
-    const res=await fetch(GAS_URL+'?'+new URLSearchParams({action:'proxyImages',urls:JSON.stringify(imageUrls)}));
-    const imgData=await res.json();
-    
-    // Base64をImageオブジェクトに変換（事前ロード）
-    const imgMap={};
-    await Promise.all(Object.entries(imgData).map(([url,val])=>{
-      if(!val||!val.b64) return Promise.resolve();
-      return new Promise(resolve=>{
-        const img=new Image();
-        img.onload=()=>{imgMap[url]=img;resolve();};
-        img.onerror=()=>resolve();
-        img.src='data:'+val.mime+';base64,'+val.b64;
-      });
-    }));
-
-    // Canvas描画（2列グリッド・clipなし）
+    // Canvas描画（2列グリッド・画像なしテスト）
     const COLS=2,THUMB=48,PAD=12,GAP=8,CARD_W=172,CARD_H=110,W=376;
     const rows=Math.ceil(trades.length/COLS);
     const H=PAD*2+28+rows*(CARD_H+GAP);
@@ -624,12 +605,10 @@ async function exportTradeImage(){
       ctx.strokeStyle='#fde68a';ctx.lineWidth=1;
       roundRect(ctx,x,y,CARD_W,CARD_H,8);ctx.stroke();
 
-      // サムネイル（clipなしでそのまま描画）
+      // サムネイル（画像なし・背景のみ）
       const ix=x+6,iy=y+(CARD_H-THUMB)/2;
       ctx.fillStyle='#fdf2f8';
       roundRect(ctx,ix,iy,THUMB,THUMB,6);ctx.fill();
-      const img=imgMap[item.image||''];
-      if(img) ctx.drawImage(img,ix,iy,THUMB,THUMB);
 
       // テキスト
       const tx=x+6+THUMB+7;
@@ -677,6 +656,7 @@ async function exportTradeImage(){
     }
   } catch(e){
     document.getElementById('export-overlay')?.remove();
+    alert('LINE:'+e.stack);
     showToast('生成に失敗: '+e.message,'#e24b4a');
   }
 }
