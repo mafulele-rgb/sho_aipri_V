@@ -566,7 +566,7 @@ async function fetchImagesBatch(urls){
           if(!val) return;
           const dataUrl='data:'+val.mime+';base64,'+val.b64;
           imgCache[url]=dataUrl;
-          try{localStorage.setItem(IMG_CACHE_PREFIX+url,dataUrl);}catch(e){}
+          // localStorageへの保存はスキップ（PWA容量制限回避）
         });
       }
     }catch(e){}
@@ -582,7 +582,6 @@ async function fetchImagesBatch(urls){
 async function imgToBase64(url){
   if(!url) return null;
   if(imgCache[url]) return imgCache[url];
-  try{const ls=localStorage.getItem(IMG_CACHE_PREFIX+url);if(ls){imgCache[url]=ls;return ls;}}catch(e){}
   await fetchImagesBatch([url]);
   return imgCache[url]||null;
 }
