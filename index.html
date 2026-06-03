@@ -586,9 +586,11 @@ async function exportTradeImage(){
     const imgMap={};
     if(imageUrls.length>0){
       try{
+        alert('step1: fetch開始 '+imageUrls.length+'件');
         const res=await fetch(GAS_URL+'?'+new URLSearchParams({action:'proxyImages',urls:JSON.stringify(imageUrls)}));
+        alert('step2: fetch完了');
         const imgData=await res.json();
-        // Base64をImageに変換して事前ロード
+        alert('step3: JSON取得 keys='+Object.keys(imgData).length);
         await Promise.all(Object.entries(imgData).map(([url,val])=>{
           if(!val||!val.b64||!val.mime) return Promise.resolve();
           const dataUrl='data:'+val.mime+';base64,'+val.b64;
@@ -599,7 +601,8 @@ async function exportTradeImage(){
             img.src=dataUrl;
           });
         }));
-      }catch(e){}
+        alert('step4: 画像ロード完了 imgMap='+Object.keys(imgMap).length);
+      }catch(e){alert('画像取得エラー: '+e.message);}
     }
 
     // Canvas描画（2列グリッド）
