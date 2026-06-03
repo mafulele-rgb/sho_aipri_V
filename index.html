@@ -30,6 +30,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;ba
 .error-box{background:#fce7f3;border:1px solid #f9a8d4;border-radius:12px;padding:16px;text-align:center;color:#be185d;font-size:14px;margin:16px 0}
 .updating-bar{background:#fce7f3;color:#be185d;font-size:11px;text-align:center;padding:4px;display:none}
 .updating-bar.show{display:block}
+.saving-bar{background:#d1fae5;color:#065f46;font-size:11px;text-align:center;padding:4px;display:none}
+.saving-bar.show{display:block}
 .dan-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .dan-card{background:#fff;border:1px solid #f9a8d4;border-radius:16px;overflow:hidden;cursor:pointer;transition:border-color 0.15s}
 .dan-card:active{background:#fce7f3}
@@ -58,10 +60,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;ba
 .detail-header{display:flex;flex-direction:column;align-items:center;margin-bottom:20px}
 .detail-img{width:160px;height:160px;object-fit:cover;border-radius:16px;border:2px solid #f9a8d4;display:block}
 .detail-name{font-size:15px;font-weight:600;color:#f472b6;margin-top:12px;text-align:center;display:flex;align-items:center;gap:6px}
-.save-bar{margin-top:20px}
-.save-btn{width:100%;background:#f472b6;color:#fff;border:none;border-radius:14px;padding:14px;font-size:15px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px}
-.save-btn:active{background:#ec4899}
-.save-btn.saving{background:#9ca3af}
 .part-row{display:flex;align-items:center;margin-bottom:12px;gap:12px}
 .part-label{font-size:13px;color:#6b7280;width:58px;flex-shrink:0}
 .part-label span{color:#f472b6}
@@ -76,24 +74,21 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;ba
   <div class="topbar" id="topbar">
     <button class="t-back" id="btn-back" style="display:none" onclick="goBack()"><i class="ti ti-arrow-left"></i></button>
     <span class="t-title" id="topbar-title">アイプリ管理</span>
-    <button class="t-icon" id="btn-reload" onclick="reloadCurrent()"><i class="ti ti-refresh"></i></button>
+    <button class="t-icon" onclick="reloadCurrent()"><i class="ti ti-refresh"></i></button>
   </div>
   <div class="updating-bar" id="updating-bar">🔄 最新データを取得中...</div>
+  <div class="saving-bar" id="saving-bar">💾 保存中...</div>
   <div class="content" id="content"></div>
   <div class="bottombar">
-    <button onclick="showHome()">
-      <i class="ti ti-heart"></i>メニュー
-    </button>
+    <button onclick="showHome()"><i class="ti ti-heart"></i>メニュー</button>
   </div>
 </div>
 <div class="toast" id="toast"></div>
 
 <script>
-// ★ここにGASのウェブアプリURLを入れる
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbyxs8MPNf_Tj0Rbj_lcptS4gDlf9opvBF2UrA21KEjzdbbqsZ_gbI_C7HXj8cfNOAk8jw/exec';
-
 const PARTS = ['アクセ','トップス','ボトムス','シューズ'];
-const CACHE_TTL = 60 * 60 * 1000; // 1時間
+const CACHE_TTL = 60 * 60 * 1000;
 
 let screen = 'home';
 let currentDan = null;
@@ -101,6 +96,7 @@ let currentItem = null;
 let dansCache = null;
 let itemsCache = {};
 let editCounts = {};
+let saveTimer = null; // 自動保存用タイマー
 
 // ---- localStorageキャッシュ ----
 function lsSet(key, val) {
@@ -114,14 +110,23 @@ function lsGet(key) {
   return null;
 }
 function lsDel(key) { try { localStorage.removeItem(key); } catch(e) {} }
-function showUpdating(show) {
-  document.getElementById('updating-bar').classList.toggle('show', show);
+
+// ---- UI helpers ----
+function setTitle(t) { document.getElementById('topbar-title').textContent = t; }
+function setBack(show) { document.getElementById('btn-back').style.display = show ? '' : 'none'; }
+function setContent(html) { document.getElementById('content').innerHTML = html; }
+function showUpdating(show) { document.getElementById('updating-bar').classList.toggle('show', show); }
+function showSaving(show) { document.getElementById('saving-bar').classList.toggle('show', show); }
+function showToast(msg, color='#1D9E75') {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.style.background = color;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2000);
 }
 
 // ---- API ----
 async function apiGet(params) {
-  const url = GAS_URL + '?' + new URLSearchParams(params);
-  const res = await fetch(url);
+  const res = await fetch(GAS_URL + '?' + new URLSearchParams(params));
   return res.json();
 }
 async function apiPost(body) {
@@ -153,22 +158,41 @@ function reloadCurrent() {
   else if (screen === 'item') { showItem(currentDan, currentItem); }
 }
 
-// ---- UI helpers ----
-function setTitle(t) { document.getElementById('topbar-title').textContent = t; }
-function setBack(show) { document.getElementById('btn-back').style.display = show ? '' : 'none'; }
-function setContent(html) { document.getElementById('content').innerHTML = html; }
-function showToast(msg, color='#1D9E75') {
-  const el = document.getElementById('toast');
-  el.textContent = msg;
-  el.style.background = color;
-  el.classList.add('show');
-  setTimeout(() => el.classList.remove('show'), 2000);
+// ---- 自動保存（+/-タップ後1秒で保存） ----
+function scheduleAutoSave() {
+  if (saveTimer) clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => doAutoSave(), 1000);
+}
+
+async function doAutoSave() {
+  showSaving(true);
+  const payload = { action: 'saveItem', dan: currentDan, itemId: currentItem.id, ...editCounts };
+  const res = await apiPost(payload).catch(() => null);
+  showSaving(false);
+  if (res && res.success) {
+    // キャッシュ更新
+    const cached = itemsCache[currentDan];
+    if (cached) {
+      const idx = cached.findIndex(i => i.id === currentItem.id);
+      if (idx >= 0) { Object.assign(cached[idx], editCounts); lsSet('items_' + currentDan, cached); }
+    }
+    currentItem = { ...currentItem, ...editCounts };
+    dansCache = null; lsDel('dans');
+    showToast('✓ 保存しました');
+  } else {
+    showToast('保存に失敗しました', '#e24b4a');
+  }
+}
+
+// ---- 所持率を小数1桁に丸める ----
+function fmtPct(rate) {
+  return Math.round(rate * 10) / 10;
 }
 
 // ---- HOME ----
 function renderDansGrid() {
   const cards = dansCache.map(d => {
-    const pct = d.rate ?? (d.total ? Math.round(d.owned / d.total * 100) : 0);
+    const pct = fmtPct(d.rate ?? (d.total ? d.owned / d.total * 100 : 0));
     return `<div class="dan-card" onclick="showDan('${d.id}')">
       <div class="dan-img">
         <img src="${d.image||''}" alt="${d.id}" loading="lazy" onerror="this.style.display='none'">
@@ -188,30 +212,22 @@ async function renderHome() {
   if (!dansCache) {
     const cached = lsGet('dans');
     if (cached) {
-      // キャッシュをすぐ表示
       dansCache = cached;
       renderDansGrid();
-      // バックグラウンドで最新データ取得
       showUpdating(true);
       apiGet({ action: 'getDans' }).then(res => {
         showUpdating(false);
-        if (res && !res.error) {
-          dansCache = res.dans;
-          lsSet('dans', dansCache);
-          if (screen === 'home') renderDansGrid();
-        }
+        if (res && !res.error) { dansCache = res.dans; lsSet('dans', dansCache); if (screen==='home') renderDansGrid(); }
       }).catch(() => showUpdating(false));
       return;
     }
-    // 初回：スピナー表示して待つ
     setContent('<div class="loading"><div class="spinner"></div><span>読み込み中...</span></div>');
     const res = await apiGet({ action: 'getDans' }).catch(() => null);
     if (!res || res.error) {
       setContent(`<div class="error-box"><i class="ti ti-alert-circle" style="font-size:24px;display:block;margin-bottom:8px"></i>データを取得できませんでした。<br>GAS URLの設定を確認してください。</div>`);
       return;
     }
-    dansCache = res.dans;
-    lsSet('dans', dansCache);
+    dansCache = res.dans; lsSet('dans', dansCache);
   }
   renderDansGrid();
 }
@@ -249,22 +265,14 @@ async function renderDan(danId) {
       showUpdating(true);
       apiGet({ action: 'getItems', dan: danId }).then(res => {
         showUpdating(false);
-        if (res && !res.error) {
-          itemsCache[danId] = res.items;
-          lsSet('items_' + danId, res.items);
-          if (screen === 'dan' && currentDan === danId) renderItemList(danId);
-        }
+        if (res && !res.error) { itemsCache[danId] = res.items; lsSet('items_' + danId, res.items); if (screen==='dan' && currentDan===danId) renderItemList(danId); }
       }).catch(() => showUpdating(false));
       return;
     }
     setContent('<div class="loading"><div class="spinner"></div><span>読み込み中...</span></div>');
     const res = await apiGet({ action: 'getItems', dan: danId }).catch(() => null);
-    if (!res || res.error) {
-      setContent(`<div class="error-box">データを取得できませんでした。</div>`);
-      return;
-    }
-    itemsCache[danId] = res.items;
-    lsSet('items_' + danId, res.items);
+    if (!res || res.error) { setContent(`<div class="error-box">データを取得できませんでした。</div>`); return; }
+    itemsCache[danId] = res.items; lsSet('items_' + danId, res.items);
   }
   renderItemList(danId);
 }
@@ -288,47 +296,17 @@ function renderItem(item) {
     </div>`).join('');
   setContent(`
     <div class="detail-header">
-      <img class="detail-img" src="${item.image||''}" alt="${item.name}"
-        onerror="this.style.display='none'">
+      <img class="detail-img" src="${item.image||''}" alt="${item.name}" onerror="this.style.display='none'">
       <div class="detail-name"><span>♡</span>${item.name}</div>
     </div>
-    ${partRows}
-    <div class="save-bar">
-      <button class="save-btn" id="save-btn" onclick="saveItem()">
-        <i class="ti ti-device-floppy"></i> スプレッドシートに保存
-      </button>
-    </div>`);
+    ${partRows}`);
 }
 
 function adj(part, delta) {
   editCounts[part] = Math.max(0, (editCounts[part]||0) + delta);
   const el = document.getElementById('cnt-' + part);
   if (el) el.textContent = editCounts[part];
-}
-
-async function saveItem() {
-  const btn = document.getElementById('save-btn');
-  if (!btn) return;
-  btn.classList.add('saving');
-  btn.innerHTML = '<i class="ti ti-loader" style="animation:spin 0.8s linear infinite"></i> 保存中...';
-
-  const payload = { action: 'saveItem', dan: currentDan, itemId: currentItem.id, ...editCounts };
-  const res = await apiPost(payload).catch(() => null);
-
-  if (res && res.success) {
-    const cached = itemsCache[currentDan];
-    if (cached) {
-      const idx = cached.findIndex(i => i.id === currentItem.id);
-      if (idx >= 0) { Object.assign(cached[idx], editCounts); lsSet('items_' + currentDan, cached); }
-    }
-    currentItem = { ...currentItem, ...editCounts };
-    dansCache = null; lsDel('dans');
-    showToast('✓ 保存しました');
-  } else {
-    showToast('保存に失敗しました', '#e24b4a');
-  }
-  btn.classList.remove('saving');
-  btn.innerHTML = '<i class="ti ti-device-floppy"></i> スプレッドシートに保存';
+  scheduleAutoSave();
 }
 
 // ---- 起動 ----
