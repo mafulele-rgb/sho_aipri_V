@@ -514,10 +514,7 @@ function renderTradeList(){
     ...danIds.map(d=>`<button class="filter-btn ${tradeFilter===d?'active':''}" onclick="setTradeFilter('${d}')">${d}</button>`)
   ].join('');
 
-  const isPWAnow=window.navigator.standalone===true||window.matchMedia('(display-mode: standalone)').matches;
-  const isIOSnow=/iPad|iPhone|iPod/.test(navigator.userAgent);
-  const exportBtn=isIOSnow
-    `<button class="trade-export-btn" onclick="exportTradeImage()"><i class="ti ti-download" style="font-size:14px"></i> 画像保存</button>`;
+  const exportBtn=`<button class="trade-export-btn" onclick="exportTradeImage()"><i class="ti ti-download" style="font-size:14px"></i> 画像保存</button>`;
   const header=`<div class="trade-header"><div class="trade-title">交換（${trades.length}件）</div>${exportBtn}</div>`;
   const filters=`<div class="filter-row">${filterBtns}</div>`;
 
