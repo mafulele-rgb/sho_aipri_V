@@ -96,6 +96,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;ba
 .modal-box img{width:100%;border-radius:8px;margin-bottom:12px}
 .modal-box p{font-size:13px;color:#6b7280;margin-bottom:16px}
 .modal-close{background:#f472b6;color:#fff;border:none;border-radius:20px;padding:10px 24px;font-size:14px;cursor:pointer}
+.img-preview{display:flex;flex-direction:column;align-items:center;padding:16px;gap:12px}
+.img-preview img{width:100%;border-radius:8px;border:1px solid #f9a8d4}
+.img-preview-hint{font-size:13px;color:#6b7280;text-align:center;line-height:1.7;background:#fdf2f8;border-radius:10px;padding:12px 16px;width:100%}
+.img-preview-hint strong{color:#f472b6}
 </style>
 </head>
 <body>
@@ -185,6 +189,11 @@ function showItem(danId,item){
   renderItem(item);
 }
 async function goBack(){
+  if(screen==='imgpreview'){
+    window._imgPreviewBack=false;
+    showTrade();
+    return;
+  }
   if(screen==='item'){
     if(isSaving) await savingPromise;
     const dan=currentDan;
@@ -523,7 +532,12 @@ async function exportTradeImage(){
   const allTrades=getTradeItems();
   const trades=tradeFilter==='all'?allTrades:allTrades.filter(t=>t.danId===tradeFilter);
   if(trades.length===0){showToast('交換アイテムがありません','#e24b4a');return;}
-  showToast('画像を生成中...');
+  // ロード中オーバーレイ表示
+  const overlay=document.createElement('div');
+  overlay.id='export-overlay';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(255,255,255,0.85);z-index:300;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px';
+  overlay.innerHTML='<div class="spinner"></div><div style="font-size:14px;color:#f472b6;font-weight:500">画像を生成中...<br><span style="font-size:12px;color:#9ca3af">アイテム数が多いと時間がかかります</span></div>';
+  document.body.appendChild(overlay);
 
   const THUMB=56,PAD=12,GAP=8,ROW_H=76;
   const W=360;
@@ -584,22 +598,34 @@ async function exportTradeImage(){
   }
 
   const dataUrl=canvas.toDataURL('image/jpeg',0.9);
+  document.getElementById('export-overlay')?.remove();
   const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent);
   if(isIOS){
-    // iPhoneは新しいタブで画像を開く → 長押し or 共有で保存
-    const w=window.open('','_blank');
-    w.document.write(`<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>交換リスト</title>
-    <style>body{margin:0;background:#111;display:flex;flex-direction:column;align-items:center;padding:16px;}
-    img{max-width:100%;border-radius:8px;}
-    p{color:#fff;font-size:13px;margin-top:12px;text-align:center;line-height:1.6;}</style></head>
-    <body><img src="${dataUrl}"><p>画像を長押し →「写真に追加」で保存<br>または右上の共有ボタンから保存</p></body></html>`);
-    w.document.close();
+    // アプリ内で画像プレビュー画面に切り替え
+    showImagePreview(dataUrl);
   } else {
     const a=document.createElement('a');
     a.download='交換リスト.jpg';a.href=dataUrl;a.click();
     showToast('✓ 画像を保存しました');
   }
+}
+
+function showImagePreview(dataUrl){
+  // 交換リストの上に画像プレビュー画面を表示
+  const prevScreen=screen;
+  screen='imgpreview';
+  setTitle('画像を保存');setBack(true);
+  document.getElementById('search-bar').style.display='none';
+  // 戻るボタンで交換リストに戻る
+  const origGoBack=goBack;
+  setContent(`<div class="img-preview">
+    <div class="img-preview-hint">
+      <strong>画像を長押し</strong> して<br>「写真に追加」または「画像を保存」を選んでください
+    </div>
+    <img src="${dataUrl}" alt="交換リスト">
+  </div>`);
+  // goBackを一時的に上書き
+  window._imgPreviewBack=true;
 }
 
 function roundRect(ctx,x,y,w,h,r){
