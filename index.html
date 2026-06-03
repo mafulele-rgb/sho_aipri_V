@@ -10,6 +10,7 @@
 <link rel="manifest" href="manifest.json">
 <title>アイプリ所持数管理</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;background:#fdf2f8;overscroll-behavior:none}
@@ -19,9 +20,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;ba
 .topbar .t-title{font-size:16px;font-weight:500;flex:1}
 .topbar .t-icon{background:none;border:none;color:#fff;cursor:pointer;padding:4px;font-size:20px;line-height:1;display:flex}
 .content{flex:1;overflow-y:auto;padding:12px;padding-bottom:72px}
-.bottombar{background:#fff;border-top:1px solid #f9a8d4;padding:8px 16px 12px;text-align:center;position:sticky;bottom:0}
-.bottombar button{background:none;border:none;cursor:pointer;color:#f472b6;font-size:11px;display:flex;flex-direction:column;align-items:center;gap:2px;margin:0 auto}
+.bottombar{background:#fff;border-top:1px solid #f9a8d4;padding:8px 0 12px;display:flex;justify-content:space-around;position:sticky;bottom:0}
+.bottombar button{background:none;border:none;cursor:pointer;color:#9ca3af;font-size:11px;display:flex;flex-direction:column;align-items:center;gap:2px;padding:0 16px}
 .bottombar button i{font-size:22px}
+.bottombar button.active{color:#f472b6}
 .toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(20px);background:#1D9E75;color:#fff;padding:8px 20px;border-radius:20px;font-size:13px;opacity:0;transition:all 0.3s;pointer-events:none;z-index:999;white-space:nowrap}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .loading{display:flex;align-items:center;justify-content:center;padding:40px;flex-direction:column;gap:12px;color:#f9a8d4}
@@ -32,8 +34,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;ba
 .updating-bar.show{display:block}
 .saving-bar{background:#d1fae5;color:#065f46;font-size:11px;text-align:center;padding:4px;display:none}
 .saving-bar.show{display:block}
+/* 検索バー */
+.search-wrap{padding:8px 12px;background:#fff;border-bottom:0.5px solid #f9a8d4}
+.search-input{width:100%;padding:8px 12px 8px 36px;border:1px solid #f9a8d4;border-radius:20px;font-size:14px;background:#fdf2f8;position:relative}
+.search-box{position:relative}
+.search-box i{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#f9a8d4;font-size:16px;pointer-events:none}
+/* 弾グリッド */
 .dan-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.dan-card{background:#fff;border:1px solid #f9a8d4;border-radius:16px;overflow:hidden;cursor:pointer;transition:border-color 0.15s}
+.dan-card{background:#fff;border:1px solid #f9a8d4;border-radius:16px;overflow:hidden;cursor:pointer}
 .dan-card:active{background:#fce7f3}
 .dan-img{aspect-ratio:1;background:#fdf2f8;overflow:hidden;display:flex;align-items:center;justify-content:center}
 .dan-img img{width:100%;height:100%;object-fit:cover}
@@ -42,8 +50,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;ba
 .dan-meta{font-size:12px;color:#9ca3af;margin-top:2px}
 .pct-bar{height:4px;background:#fce7f3;border-radius:2px;margin-top:6px}
 .pct-fill{height:100%;background:#f472b6;border-radius:2px;transition:width 0.4s}
+/* アイテムリスト */
 .item-list{display:flex;flex-direction:column;gap:8px}
-.item-row{display:flex;align-items:center;gap:10px;padding:10px;background:#fff;border:1px solid #f9a8d4;border-radius:14px;cursor:pointer;transition:border-color 0.15s}
+.item-row{display:flex;align-items:center;gap:10px;padding:10px;background:#fff;border:1px solid #f9a8d4;border-radius:14px;cursor:pointer}
 .item-row:active{background:#fdf2f8}
 .item-row.complete{border-color:#1D9E75;border-width:1.5px}
 .item-thumb{width:56px;height:56px;border-radius:10px;background:#fdf2f8;overflow:hidden;flex-shrink:0}
@@ -57,6 +66,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;ba
 .part-chip{padding:2px 7px;border-radius:10px;font-size:11px;font-weight:500}
 .part-chip.zero{background:#fce7f3;color:#be185d}
 .part-chip.has{background:#d1fae5;color:#065f46}
+.part-chip.extra{background:#fef3c7;color:#92400e}
+/* 詳細 */
 .detail-header{display:flex;flex-direction:column;align-items:center;margin-bottom:20px}
 .detail-img{width:160px;height:160px;object-fit:cover;border-radius:16px;border:2px solid #f9a8d4;display:block}
 .detail-name{font-size:15px;font-weight:600;color:#f472b6;margin-top:12px;text-align:center;display:flex;align-items:center;gap:6px}
@@ -67,10 +78,23 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;ba
 .cnt-btn{width:32px;height:32px;border-radius:50%;border:1px solid #f9a8d4;background:#fff;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;color:#f472b6;flex-shrink:0}
 .cnt-btn:active{background:#fce7f3}
 .cnt-val{flex:1;text-align:center;font-size:18px;font-weight:600;color:#374151}
+/* 交換リスト */
+.trade-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.trade-title{font-size:15px;font-weight:600;color:#374151}
+.trade-export-btn{background:#f472b6;color:#fff;border:none;border-radius:20px;padding:6px 14px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px}
+.trade-empty{text-align:center;color:#9ca3af;padding:40px 0;font-size:14px}
+.trade-item{display:flex;align-items:center;gap:10px;padding:10px;background:#fff;border:1px solid #fde68a;border-radius:14px;margin-bottom:8px}
+.trade-thumb{width:56px;height:56px;border-radius:10px;background:#fdf2f8;overflow:hidden;flex-shrink:0}
+.trade-thumb img{width:100%;height:100%;object-fit:cover}
+.trade-info{flex:1;min-width:0}
+.trade-name{font-size:13px;font-weight:500;color:#374151;margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.trade-dan{font-size:11px;color:#9ca3af;margin-bottom:4px}
+.trade-parts{display:flex;gap:4px;flex-wrap:wrap}
+.trade-chip{padding:2px 7px;border-radius:10px;font-size:11px;font-weight:500;background:#fef3c7;color:#92400e}
 </style>
 </head>
 <body>
-<div class="app">
+<div class="app" id="app-root">
   <div class="topbar" id="topbar">
     <button class="t-back" id="btn-back" style="display:none" onclick="goBack()"><i class="ti ti-arrow-left"></i></button>
     <span class="t-title" id="topbar-title">アイプリ管理</span>
@@ -79,8 +103,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;ba
   <div class="updating-bar" id="updating-bar">🔄 最新データを取得中...</div>
   <div class="saving-bar" id="saving-bar">💾 保存中...</div>
   <div class="content" id="content"></div>
-  <div class="bottombar">
-    <button onclick="showHome()"><i class="ti ti-heart"></i>メニュー</button>
+  <div class="bottombar" id="bottombar">
+    <button id="tab-home" class="active" onclick="showHome()"><i class="ti ti-home"></i>ホーム</button>
+    <button id="tab-trade" onclick="showTrade()"><i class="ti ti-arrows-exchange"></i>交換リスト</button>
   </div>
 </div>
 <div class="toast" id="toast"></div>
@@ -98,6 +123,14 @@ let itemsCache = {};
 let editCounts = {};
 let isSaving = false;
 let savingPromise = null;
+let searchQuery = '';
+
+// ---- カナ/ひらがな正規化 ----
+function normalize(str) {
+  return str
+    .replace(/[\u30A1-\u30F6]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60))
+    .toLowerCase();
+}
 
 // ---- localStorageキャッシュ ----
 function lsSet(key, val) {
@@ -124,6 +157,10 @@ function showToast(msg, color='#1D9E75') {
   el.classList.add('show');
   setTimeout(() => el.classList.remove('show'), 2000);
 }
+function setActiveTab(tab) {
+  document.getElementById('tab-home').classList.toggle('active', tab === 'home');
+  document.getElementById('tab-trade').classList.toggle('active', tab === 'trade');
+}
 
 // ---- API ----
 async function apiGet(params) {
@@ -137,11 +174,12 @@ async function apiPost(body) {
 
 // ---- ナビ ----
 function showHome() {
-  screen = 'home'; currentDan = null; currentItem = null;
+  screen = 'home'; currentDan = null; currentItem = null; searchQuery = '';
+  setActiveTab('home');
   renderHome();
 }
 function showDan(danId) {
-  screen = 'dan'; currentDan = danId; currentItem = null;
+  screen = 'dan'; currentDan = danId; currentItem = null; searchQuery = '';
   renderDan(danId);
 }
 function showItem(danId, item) {
@@ -151,35 +189,35 @@ function showItem(danId, item) {
 }
 async function goBack() {
   if (screen === 'item') {
-    // 保存中なら完了を待つ
     if (isSaving) await savingPromise;
     const dan = currentDan;
     screen = 'dan'; currentDan = dan; currentItem = null;
     setTitle(dan); setBack(true);
     if (itemsCache[dan]) renderItemList(dan);
     else renderDan(dan);
-  } else if (screen === 'dan') { showHome(); }
+  } else if (screen === 'dan') {
+    showHome();
+  } else if (screen === 'trade') {
+    showHome();
+  }
 }
 function reloadCurrent() {
   if (screen === 'home') { dansCache = null; lsDel('dans'); renderHome(); }
   else if (screen === 'dan') { delete itemsCache[currentDan]; lsDel('items_' + currentDan); showDan(currentDan); }
   else if (screen === 'item') { showItem(currentDan, currentItem); }
+  else if (screen === 'trade') { showTrade(); }
 }
 
-// ---- 自動保存（+/-タップで即保存） ----
+// ---- 自動保存 ----
 function scheduleAutoSave() {
   savingPromise = doAutoSave();
 }
-
 async function doAutoSave() {
-  isSaving = true;
-  showSaving(true);
+  isSaving = true; showSaving(true);
   const payload = { action: 'saveItem', dan: currentDan, itemId: currentItem.id, ...editCounts };
   const res = await apiPost(payload).catch(() => null);
-  showSaving(false);
-  isSaving = false;
+  showSaving(false); isSaving = false;
   if (res && res.success) {
-    // キャッシュ更新
     const cached = itemsCache[currentDan];
     if (cached) {
       const idx = cached.findIndex(i => i.id === currentItem.id);
@@ -193,19 +231,14 @@ async function doAutoSave() {
   }
 }
 
-// ---- 所持率を小数1桁に丸める ----
-function fmtPct(rate) {
-  return Math.round(rate * 10) / 10;
-}
+function fmtPct(rate) { return Math.round(rate * 10) / 10; }
 
 // ---- HOME ----
 function renderDansGrid() {
   const cards = dansCache.map(d => {
     const pct = fmtPct(d.rate ?? (d.total ? d.owned / d.total * 100 : 0));
     return `<div class="dan-card" onclick="showDan('${d.id}')">
-      <div class="dan-img">
-        <img src="${d.image||''}" alt="${d.id}" loading="lazy" onerror="this.style.display='none'">
-      </div>
+      <div class="dan-img"><img src="${d.image||''}" alt="${d.id}" loading="lazy" onerror="this.style.display='none'"></div>
       <div class="dan-footer">
         <div class="dan-name">${d.id}</div>
         <div class="dan-meta">${d.owned ?? 0} / ${d.total ?? 0}（${pct}%）</div>
@@ -215,14 +248,12 @@ function renderDansGrid() {
   }).join('');
   setContent(`<div class="dan-grid">${cards}</div>`);
 }
-
 async function renderHome() {
-  setTitle('メニュー'); setBack(false);
+  setTitle('アイプリ管理'); setBack(false); setActiveTab('home');
   if (!dansCache) {
     const cached = lsGet('dans');
     if (cached) {
-      dansCache = cached;
-      renderDansGrid();
+      dansCache = cached; renderDansGrid();
       showUpdating(true);
       apiGet({ action: 'getDans' }).then(res => {
         showUpdating(false);
@@ -233,7 +264,7 @@ async function renderHome() {
     setContent('<div class="loading"><div class="spinner"></div><span>読み込み中...</span></div>');
     const res = await apiGet({ action: 'getDans' }).catch(() => null);
     if (!res || res.error) {
-      setContent(`<div class="error-box"><i class="ti ti-alert-circle" style="font-size:24px;display:block;margin-bottom:8px"></i>データを取得できませんでした。<br>GAS URLの設定を確認してください。</div>`);
+      setContent(`<div class="error-box"><i class="ti ti-alert-circle" style="font-size:24px;display:block;margin-bottom:8px"></i>データを取得できませんでした。</div>`);
       return;
     }
     dansCache = res.dans; lsSet('dans', dansCache);
@@ -243,17 +274,30 @@ async function renderHome() {
 
 // ---- DAN ----
 function renderItemList(danId) {
-  const items = itemsCache[danId];
+  const q = normalize(searchQuery);
+  const items = (itemsCache[danId] || []).filter(item => {
+    if (!q) return true;
+    return normalize(item.name).includes(q) || normalize(item.id).includes(q);
+  });
+  const searchBar = `<div class="search-wrap"><div class="search-box">
+    <i class="ti ti-search"></i>
+    <input class="search-input" type="text" placeholder="アイテムを検索..." value="${searchQuery}"
+      oninput="searchQuery=this.value; renderItemList('${danId}')">
+  </div></div>`;
+  if (items.length === 0) {
+    document.getElementById('content').innerHTML = searchBar + '<div class="item-list"><div class="trade-empty">該当するアイテムがありません</div></div>';
+    return;
+  }
   const rows = items.map(item => {
     const complete = PARTS.every(p => item[p] > 0);
-    const chips = PARTS.map(p =>
-      `<span class="part-chip ${item[p]>0?'has':'zero'}">${p}: ${item[p]}</span>`
-    ).join('');
+    const chips = PARTS.map(p => {
+      const v = item[p];
+      const cls = v === 0 ? 'zero' : v > 1 ? 'extra' : 'has';
+      return `<span class="part-chip ${cls}">${p}: ${v}</span>`;
+    }).join('');
     return `<div class="item-row ${complete?'complete':''}" onclick="openItem('${danId}','${item.id}')">
-      <div class="item-thumb">
-        <img src="${item.image||''}" alt="${item.name}" loading="lazy"
-          onerror="this.parentElement.innerHTML='<div class=no-img><i class=ti ti-photo-off></i></div>'">
-      </div>
+      <div class="item-thumb"><img src="${item.image||''}" alt="${item.name}" loading="lazy"
+        onerror="this.parentElement.innerHTML='<div class=no-img><i class=ti ti-photo-off></i></div>'"></div>
       <div class="item-info">
         <div class="item-name-row"><span class="heart">♡</span><span class="item-iname">${item.name}</span></div>
         <div class="parts-row">${chips}</div>
@@ -261,16 +305,14 @@ function renderItemList(danId) {
       <i class="ti ti-chevron-right" style="color:#f9a8d4;font-size:16px;flex-shrink:0"></i>
     </div>`;
   }).join('');
-  setContent(`<div class="item-list">${rows}</div>`);
+  document.getElementById('content').innerHTML = searchBar + `<div class="item-list" style="margin-top:8px">${rows}</div>`;
 }
-
 async function renderDan(danId) {
   setTitle(danId); setBack(true);
   if (!itemsCache[danId]) {
     const cached = lsGet('items_' + danId);
     if (cached) {
-      itemsCache[danId] = cached;
-      renderItemList(danId);
+      itemsCache[danId] = cached; renderItemList(danId);
       showUpdating(true);
       apiGet({ action: 'getItems', dan: danId }).then(res => {
         showUpdating(false);
@@ -285,7 +327,6 @@ async function renderDan(danId) {
   }
   renderItemList(danId);
 }
-
 function openItem(danId, itemId) {
   const item = (itemsCache[danId]||[]).find(i => i.id === itemId);
   if (item) showItem(danId, item);
@@ -307,15 +348,95 @@ function renderItem(item) {
     <div class="detail-header">
       <img class="detail-img" src="${item.image||''}" alt="${item.name}" onerror="this.style.display='none'">
       <div class="detail-name"><span>♡</span>${item.name}</div>
-    </div>
-    ${partRows}`);
+    </div>${partRows}`);
 }
-
 function adj(part, delta) {
   editCounts[part] = Math.max(0, (editCounts[part]||0) + delta);
   const el = document.getElementById('cnt-' + part);
   if (el) el.textContent = editCounts[part];
   scheduleAutoSave();
+}
+
+// ---- 交換リスト ----
+function getTradeItems() {
+  const result = [];
+  Object.entries(itemsCache).forEach(([danId, items]) => {
+    (items || []).forEach(item => {
+      const extras = PARTS.filter(p => item[p] > 1);
+      if (extras.length > 0) {
+        result.push({ danId, item, extras });
+      }
+    });
+  });
+  return result;
+}
+
+async function showTrade() {
+  screen = 'trade'; currentDan = null; currentItem = null;
+  setTitle('交換リスト'); setBack(false); setActiveTab('trade');
+
+  // キャッシュ未読み込みの弾を全部読み込む
+  if (dansCache) {
+    const loading = dansCache.filter(d => !itemsCache[d.id]);
+    if (loading.length > 0) {
+      setContent('<div class="loading"><div class="spinner"></div><span>データを読み込み中...</span></div>');
+      await Promise.all(loading.map(async d => {
+        const cached = lsGet('items_' + d.id);
+        if (cached) { itemsCache[d.id] = cached; return; }
+        const res = await apiGet({ action: 'getItems', dan: d.id }).catch(() => null);
+        if (res && !res.error) { itemsCache[d.id] = res.items; lsSet('items_' + d.id, res.items); }
+      }));
+    }
+  }
+  renderTradeList();
+}
+
+function renderTradeList() {
+  const trades = getTradeItems();
+  const exportBtn = `<button class="trade-export-btn" onclick="exportTradeImage()"><i class="ti ti-download" style="font-size:14px"></i>画像保存</button>`;
+  const header = `<div class="trade-header"><div class="trade-title">交換できるアイテム（${trades.length}件）</div>${exportBtn}</div>`;
+
+  if (trades.length === 0) {
+    setContent(header + '<div class="trade-empty">余っているアイテムはありません</div>');
+    return;
+  }
+  const rows = trades.map(({ danId, item, extras }) => {
+    const chips = extras.map(p =>
+      `<span class="trade-chip">${p} +${item[p]-1}</span>`
+    ).join('');
+    return `<div class="trade-item">
+      <div class="trade-thumb"><img src="${item.image||''}" alt="${item.name}" loading="lazy"
+        onerror="this.parentElement.innerHTML='<div class=no-img><i class=ti ti-photo-off></i></div>'"></div>
+      <div class="trade-info">
+        <div class="trade-name">${item.name}</div>
+        <div class="trade-dan">${danId}</div>
+        <div class="trade-parts">${chips}</div>
+      </div>
+    </div>`;
+  }).join('');
+  setContent(`<div id="trade-content">${header}<div>${rows}</div></div>`);
+}
+
+// ---- 交換リスト画像出力 ----
+async function exportTradeImage() {
+  const el = document.getElementById('trade-content');
+  if (!el) return;
+  showToast('画像を生成中...');
+  try {
+    const canvas = await html2canvas(el, {
+      backgroundColor: '#fff',
+      scale: 2,
+      useCORS: true,
+      allowTaint: true,
+    });
+    const link = document.createElement('a');
+    link.download = '交換リスト.jpg';
+    link.href = canvas.toDataURL('image/jpeg', 0.9);
+    link.click();
+    showToast('✓ 画像を保存しました');
+  } catch(e) {
+    showToast('画像生成に失敗しました', '#e24b4a');
+  }
 }
 
 // ---- 起動 ----
