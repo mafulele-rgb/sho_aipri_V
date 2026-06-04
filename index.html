@@ -136,7 +136,6 @@ let currentDan = null;
 let currentItem = null;
 let dansCache = null;
 let itemsCache = {};
-let savedScrollTop = 0; // 弾リストのスクロール位置
 let editCounts = {};
 let isSaving = false;
 let savingPromise = null;
@@ -191,21 +190,34 @@ function showDan(danId){
   renderDan(danId);
 }
 function showItem(danId,item){
-  savedScrollTop=document.getElementById('content').scrollTop;
-  screen='item';currentDan=danId;currentItem=item;
+  currentDan=danId;currentItem=item;
   editCounts={アクセ:item.アクセ,トップス:item.トップス,ボトムス:item.ボトムス,シューズ:item.シューズ};
-  renderItem(item);
+  openItemPopup(item,danId);
+}
+function openItemPopup(item,danId){
+  document.getElementById('popup-img').src=item.image||'';
+  document.getElementById('popup-name').textContent=item.name;
+  document.getElementById('popup-dan').textContent=danId;
+  document.getElementById('popup-parts').innerHTML=PARTS.map(p=>`
+    <div class="popup-part-row">
+      <div class="popup-part-label">${p}</div>
+      <div class="popup-counter">
+        <button class="popup-cnt-btn" onclick="adj('${p}',-1)">－</button>
+        <span class="popup-cnt-val" id="cnt-${p}">${editCounts[p]}</span>
+        <button class="popup-cnt-btn" onclick="adj('${p}',1)">＋</button>
+      </div>
+    </div>`).join('');
+  document.getElementById('item-popup-overlay').classList.add('open');
+}
+function closeItemPopup(){
+  document.getElementById('item-popup-overlay').classList.remove('open');
+  currentItem=null;
+}
+function handlePopupOverlayClick(e){
+  if(e.target===document.getElementById('item-popup-overlay')) closeItemPopup();
 }
 async function goBack(){
-  if(screen==='item'){
-    if(isSaving) await savingPromise;
-    const dan=currentDan;
-    screen='dan';currentDan=dan;currentItem=null;
-    setTitle(dan);setBack(true);
-    if(itemsCache[dan]) renderItemList(dan);
-    else renderDan(dan);
-    document.getElementById('content').scrollTop=savedScrollTop;
-  } else if(screen==='dan'){
+  if(screen==='dan'){
     showHome();
   } else if(screen==='trade'){
     showHome();
@@ -214,7 +226,7 @@ async function goBack(){
 function reloadCurrent(){
   if(screen==='home'){dansCache=null;lsDel('dans');renderHome();}
   else if(screen==='dan'){delete itemsCache[currentDan];lsDel('items_'+currentDan);showDan(currentDan);}
-  else if(screen==='item'){showItem(currentDan,currentItem);}
+
   else if(screen==='trade'){showTrade();}
 }
 
