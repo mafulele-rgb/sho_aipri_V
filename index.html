@@ -186,7 +186,11 @@ function showDan(danId){
   renderDan(danId);
 }
 function showItem(danId,item){
-  if(screen==='dan') danScrollPos[danId]=document.getElementById('content').scrollTop;
+  if(screen==='dan'){
+    const pos=document.getElementById('content').scrollTop;
+    danScrollPos[danId]=pos;
+    console.log('scroll saved:',danId,pos);
+  }
   screen='item';currentDan=danId;currentItem=item;
   editCounts={アクセ:item.アクセ,トップス:item.トップス,ボトムス:item.ボトムス,シューズ:item.シューズ};
   renderItem(item);
@@ -196,12 +200,17 @@ async function goBack(){
     if(isSaving) await savingPromise;
     const dan=currentDan;
     const scrollY=danScrollPos[dan]||0;
+    console.log('scroll restore:',dan,scrollY);
     screen='dan';currentDan=dan;currentItem=null;
     setTitle(dan);setBack(true);
     if(itemsCache[dan]) renderItemList(dan);
     else renderDan(dan);
-    // スクロール位置を復元
-    requestAnimationFrame(()=>{ document.getElementById('content').scrollTop=scrollY; });
+    // スクロール位置を復元（描画完了後）
+    setTimeout(()=>{
+      const el=document.getElementById('content');
+      el.scrollTop=scrollY;
+      console.log('scrollTop set to',scrollY,'actual',el.scrollTop);
+    },100);
   } else if(screen==='dan'){
     showHome();
   } else if(screen==='trade'){
