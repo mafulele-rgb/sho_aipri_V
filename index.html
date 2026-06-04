@@ -603,16 +603,16 @@ async function exportTradeImage(){
         ${imgTag}
         <div style="flex:1;min-width:0;overflow:hidden">
           <div style="font-size:9px;color:#9ca3af">${danId}</div>
-          <div style="font-size:11px;font-weight:600;color:#374151;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:110px">${item.name}</div>
+          <div style="font-size:11px;font-weight:600;color:#374151;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100px">${item.name}</div>
           <div style="margin-top:2px">${chips}</div>
         </div>
       </div>`;
     }).join('');
 
     const wrap=document.createElement('div');
-    wrap.style.cssText='position:fixed;left:-9999px;top:0;width:376px;background:#fff;padding:12px;font-family:sans-serif;box-sizing:border-box';
+    wrap.style.cssText='position:fixed;left:-9999px;top:0;width:360px;background:#fff;padding:10px;font-family:sans-serif;box-sizing:border-box';
     wrap.innerHTML=`<div style="font-size:13px;font-weight:700;color:#f472b6;margin-bottom:8px">交換リスト（${trades.length}件）</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">${rows}</div>`;
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;width:100%;box-sizing:border-box">${rows}</div>`;
     document.body.appendChild(wrap);
 
     const canvas=await html2canvas(wrap,{
