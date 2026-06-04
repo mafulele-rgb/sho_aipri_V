@@ -514,10 +514,32 @@ async function showTrade(){
   renderTradeList();
 }
 
+let tradeMode='trade'; // 'trade' or 'missing'
+
+function getMissingItems(){
+  const result=[];
+  Object.entries(itemsCache).forEach(([danId,items])=>{
+    (items||[]).forEach(item=>{
+      const total=PARTS.reduce((s,p)=>s+(item[p]||0),0);
+      if(total===0) result.push({danId,item});
+    });
+  });
+  return result;
+}
+
 function renderTradeList(){
   const allTrades=getTradeItems();
-  const danIds=[...new Set(allTrades.map(t=>t.danId))];
-  const trades=tradeFilter==='all'?allTrades:allTrades.filter(t=>t.danId===tradeFilter);
+  const allMissing=getMissingItems();
+
+  const baseList=tradeMode==='trade'?allTrades:allMissing;
+  const danIds=[...new Set(baseList.map(t=>t.danId))];
+  const filtered=tradeFilter==='all'?baseList:baseList.filter(t=>t.danId===tradeFilter);
+
+  // モード切替ボタン
+  const modeSwitch=`<div style="display:flex;gap:6px;margin-bottom:8px">
+    <button class="filter-btn ${tradeMode==='trade'?'active':''}" onclick="setTradeMode('trade')" style="flex:1">🔄 交換（${allTrades.length}）</button>
+    <button class="filter-btn ${tradeMode==='missing'?'active':''}" onclick="setTradeMode('missing')" style="flex:1">⭐ 未所持（${allMissing.length}）</button>
+  </div>`;
 
   // フィルターボタン
   const filterBtns=[
@@ -525,14 +547,20 @@ function renderTradeList(){
     ...danIds.map(d=>`<button class="filter-btn ${tradeFilter===d?'active':''}" onclick="setTradeFilter('${d}')">${d}</button>`)
   ].join('');
 
-  const exportBtn=`<button class="trade-export-btn" onclick="exportTradeImage()"><i class="ti ti-download" style="font-size:14px"></i> 画像保存</button>`;
-  const header=`<div class="trade-header"><div class="trade-title">交換（${trades.length}件）</div>${exportBtn}</div>`;
+  const exportBtn=tradeMode==='trade'
+    ?`<button class="trade-export-btn" onclick="exportTradeImage()"><i class="ti ti-download" style="font-size:14px"></i> 画像保存</button>`
+    :'';
+  const header=`<div class="trade-header"><div class="trade-title">${tradeMode==='trade'?'交換':'未所持'}（${filtered.length}件）</div>${exportBtn}</div>`;
   const filters=`<div class="filter-row">${filterBtns}</div>`;
 
-  const rows=trades.length===0
-    ? '<div class="trade-empty">余っているアイテムはありません</div>'
-    : trades.map(({danId,item,extras})=>{
-        const chips=extras.map(p=>`<span class="trade-chip">${p} +${item[p]-1}</span>`).join('');
+  const emptyMsg=tradeMode==='trade'?'余っているアイテムはありません':'未所持のアイテムはありません';
+
+  const rows=filtered.length===0
+    ?`<div class="trade-empty">${emptyMsg}</div>`
+    :filtered.map(({danId,item,extras})=>{
+        const chips=tradeMode==='trade'
+          ?(extras||[]).map(p=>`<span class="trade-chip">${p} +${item[p]-1}</span>`).join('')
+          :PARTS.map(p=>`<span class="trade-chip" style="background:#fce7f3;color:#9d174d">${p}</span>`).join('');
         return `<div class="trade-item" onclick="openItem('${danId}','${item.id}')">
           <div class="trade-thumb"><img src="${item.image||''}" alt="${item.name}" loading="lazy"
             onerror="this.parentElement.innerHTML='<div class=no-img><i class=ti ti-photo-off></i></div>'"></div>
@@ -545,8 +573,13 @@ function renderTradeList(){
         </div>`;
       }).join('');
 
-  document.getElementById('content').scrollTop=0;
-  setContent(`<div id="trade-content"><div id="screenshot-hint" style="display:none;background:#fef3c7;border-radius:12px;padding:12px;margin-bottom:12px;text-align:center;font-size:13px;color:#92400e;position:sticky;top:0;z-index:10">📸 スクショして保存 → もう一度タップで戻る</div>${header}${filters}${rows}</div>`);
+  setContent(`<div id="trade-content">${modeSwitch}${header}${filters}${rows}</div>`);
+}
+
+function setTradeMode(mode){
+  tradeMode=mode;
+  tradeFilter='all';
+  renderTradeList();
 }
 
 function setTradeFilter(danId){
