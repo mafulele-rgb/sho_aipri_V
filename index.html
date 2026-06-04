@@ -579,9 +579,7 @@ function renderTradeList(){
     ...danIds.map(d=>`<button class="filter-btn ${tradeFilter===d?'active':''}" onclick="setTradeFilter('${d}')">${d}</button>`)
   ].join('');
 
-  const exportBtn=tradeMode==='trade'
-    ?`<button class="trade-export-btn" onclick="exportTradeImage()"><i class="ti ti-download" style="font-size:14px"></i> 画像保存</button>`
-    :'';
+  const exportBtn=`<button class="trade-export-btn" onclick="exportTradeImage()"><i class="ti ti-download" style="font-size:14px"></i> 画像保存</button>`;
   const header=`<div class="trade-header"><div class="trade-title">${tradeMode==='trade'?'交換':'未所持'}（${filtered.length}件）</div>${exportBtn}</div>`;
   const filters=`<div class="filter-row">${filterBtns}</div>`;
 
@@ -647,9 +645,9 @@ async function imgToBase64(url){
 }
 
 async function exportTradeImage(){
-  const allTrades=getTradeItems();
+  const allTrades=tradeMode==='trade'?getTradeItems():getMissingItems();
   const trades=tradeFilter==='all'?allTrades:allTrades.filter(t=>t.danId===tradeFilter);
-  if(trades.length===0){showToast('交換アイテムがありません','#e24b4a');return;}
+  if(trades.length===0){showToast('アイテムがありません','#e24b4a');return;}
 
   const overlay=document.createElement('div');
   overlay.id='export-overlay';
@@ -671,7 +669,9 @@ async function exportTradeImage(){
 
     // Base64 imgタグでDIVを構成してhtml2canvasで撮影
     const rows=trades.map(({danId,item,extras})=>{
-      const chips=extras.map(p=>`<span style="display:inline-block;background:#fef3c7;color:#92400e;padding:1px 7px;border-radius:8px;font-size:10px;font-weight:500;margin:2px 2px 0 0">${p}+${item[p]-1}</span>`).join('');
+      const chips=tradeMode==='trade'
+        ?(extras||[]).map(p=>`<span style="display:inline-block;background:#fef3c7;color:#92400e;padding:1px 7px;border-radius:8px;font-size:10px;font-weight:500;margin:2px 2px 0 0">${p}+${item[p]-1}</span>`).join('')
+        :PARTS.map(p=>`<span style="display:inline-block;background:#fce7f3;color:#9d174d;padding:1px 7px;border-radius:8px;font-size:10px;font-weight:500;margin:2px 2px 0 0">${p}</span>`).join('');
       const src=b64Map[item.image||'']||'';
       const imgTag=src
         ?`<img src="${src}" style="width:52px;height:52px;border-radius:6px;object-fit:cover;flex-shrink:0">`
@@ -688,7 +688,7 @@ async function exportTradeImage(){
 
     const wrap=document.createElement('div');
     wrap.style.cssText='position:fixed;left:-9999px;top:0;width:360px;background:#fff;padding:10px;font-family:sans-serif;box-sizing:border-box';
-    wrap.innerHTML=`<div style="font-size:13px;font-weight:700;color:#f472b6;margin-bottom:8px">交換リスト（${trades.length}件）</div>
+    wrap.innerHTML=`<div style="font-size:13px;font-weight:700;color:#f472b6;margin-bottom:8px">${tradeMode==='trade'?'交換リスト':'未所持リスト'}（${trades.length}件）</div>
       <div style="display:flex;flex-direction:column;gap:6px">${rows}</div>`;
     document.body.appendChild(wrap);
 
