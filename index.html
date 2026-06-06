@@ -790,51 +790,16 @@ function roundRect(ctx,x,y,w,h,r){
   ctx.closePath();
 }
 
-// ---- 認証 ----
-const AUTH_KEY='aipri_auth';
-const AUTH_EXPIRE=24*60*60*1000; // 24時間
-
-function checkAuth(){
-  const input=document.getElementById('auth-input').value;
-  if(input===API_PASSWORD){
-    localStorage.setItem(AUTH_KEY,Date.now());
-    document.getElementById('auth-screen').style.display='none';
-  } else {
-    document.getElementById('auth-error').style.display='block';
-    document.getElementById('auth-input').value='';
-    document.getElementById('auth-input').focus();
-  }
-}
-
-document.addEventListener('DOMContentLoaded',()=>{
-  // 24時間以内にログイン済みならスキップ
-  const saved=localStorage.getItem(AUTH_KEY);
-  if(saved && Date.now()-Number(saved)<AUTH_EXPIRE){
-    document.getElementById('auth-screen').style.display='none';
-  } else {
-    setTimeout(()=>document.getElementById('auth-input').focus(),300);
-  }
-  // ボタンイベント
-  const btn=document.getElementById('auth-btn');
-  btn.addEventListener('click',checkAuth);
-  btn.addEventListener('touchend',(e)=>{e.preventDefault();checkAuth();},{passive:false});
-  // Enterキー
-  document.getElementById('auth-input').addEventListener('keydown',(e)=>{
-    if(e.key==='Enter') checkAuth();
-  });
-});
-
 // ---- 認証（GASでパスワード検証） ----
 const AUTH_KEY='aipri_auth';
-const AUTH_EXPIRE=24*60*60*1000; // 24時間
-let sessionPassword=''; // セッション中のパスワード保持
+const AUTH_EXPIRE=24*60*60*1000;
+let sessionPassword='';
 
 async function checkAuth(){
   const input=document.getElementById('auth-input').value;
   if(!input) return;
   const btn=document.getElementById('auth-btn');
-  btn.textContent='確認中...';
-  btn.disabled=true;
+  btn.textContent='確認中...';btn.disabled=true;
   try{
     const res=await fetch(GAS_URL+'?'+new URLSearchParams({action:'checkPassword',password:input}));
     const data=await res.json();
@@ -849,17 +814,16 @@ async function checkAuth(){
       document.getElementById('auth-input').focus();
     }
   }catch(e){
-    document.getElementById('auth-error').textContent='通信エラーが発生しました';
+    document.getElementById('auth-error').textContent='通信エラー';
     document.getElementById('auth-error').style.display='block';
   }
-  btn.textContent='ログイン';
-  btn.disabled=false;
+  btn.textContent='ログイン';btn.disabled=false;
 }
 
 document.addEventListener('DOMContentLoaded',()=>{
   const saved=localStorage.getItem(AUTH_KEY);
   const savedPw=localStorage.getItem(AUTH_KEY+'_pw');
-  if(saved && savedPw && Date.now()-Number(saved)<AUTH_EXPIRE){
+  if(saved&&savedPw&&Date.now()-Number(saved)<AUTH_EXPIRE){
     sessionPassword=savedPw;
     document.getElementById('auth-screen').style.display='none';
   } else {
@@ -868,37 +832,5 @@ document.addEventListener('DOMContentLoaded',()=>{
   const btn=document.getElementById('auth-btn');
   btn.addEventListener('click',checkAuth);
   btn.addEventListener('touchend',(e)=>{e.preventDefault();checkAuth();},{passive:false});
-  document.getElementById('auth-input').addEventListener('keydown',(e)=>{
-    if(e.key==='Enter') checkAuth();
-  });
+  document.getElementById('auth-input').addEventListener('keydown',(e)=>{if(e.key==='Enter')checkAuth();});
 });
-
-// ---- 起動 ----
-// 初回起動時に全弾データをバックグラウンドでプリフェッチ
-async function prefetchAll(){
-  if(!dansCache) return;
-  for(const d of dansCache){
-    if(!itemsCache[d.id]){
-      const c=lsGet('items_'+d.id);
-      if(c){itemsCache[d.id]=c;continue;}
-      const res=await apiGet({action:'getItems',dan:d.id}).catch(()=>null);
-      if(res&&!res.error){itemsCache[d.id]=res.items;lsSet('items_'+d.id,res.items);}
-    }
-  }
-}
-
-async function init(){
-  // dansキャッシュ読み込み
-  const c=lsGet('dans');
-  if(c) dansCache=c;
-  showHome();
-  // バックグラウンドで最新データ取得＋全弾プリフェッチ
-  const res=await apiGet({action:'getDans'}).catch(()=>null);
-  if(res&&!res.error){dansCache=res.dans;lsSet('dans',dansCache);}
-  await prefetchAll();
-}
-
-document.addEventListener('DOMContentLoaded',init);
-</script>
-</body>
-</html>
