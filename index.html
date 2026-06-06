@@ -592,7 +592,10 @@ function renderTradeList(){
     ...danIds.map(d=>`<button class="filter-btn ${tradeFilter===d?'active':''}" onclick="setTradeFilter('${d}')">${d}</button>`)
   ].join('');
 
-  const exportBtn=`<button class="trade-export-btn" onclick="exportTradeImage()"><i class="ti ti-download" style="font-size:14px"></i> 画像保存</button>`;
+  const isIOSnow=/iPad|iPhone|iPod/.test(navigator.userAgent);
+  const exportBtn=isIOSnow
+    ?`<button class="trade-export-btn" onclick="printTradeList()"><i class="ti ti-printer" style="font-size:14px"></i> PDF保存</button>`
+    :`<button class="trade-export-btn" onclick="exportTradeImage()"><i class="ti ti-download" style="font-size:14px"></i> 画像保存</button>`;
   const header=`<div class="trade-header"><div class="trade-title">${tradeMode==='trade'?'交換':'未所持'}（${filtered.length}件）</div>${exportBtn}</div>`;
   const filters=`<div class="filter-row">${filterBtns}</div>`;
 
@@ -655,6 +658,10 @@ async function imgToBase64(url){
   if(imgCache[url]) return imgCache[url];
   await fetchImagesBatch([url]);
   return imgCache[url]||null;
+}
+
+function printTradeList(){
+  window.print();
 }
 
 async function exportTradeImage(){
@@ -826,6 +833,7 @@ async function checkAuth(){
       localStorage.setItem(AUTH_KEY,Date.now());
       localStorage.setItem(AUTH_KEY+'_pw',input);
       document.getElementById('auth-screen').style.display='none';
+      init();
     } else {
       document.getElementById('auth-error').style.display='block';
       document.getElementById('auth-input').value='';
@@ -844,6 +852,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   if(saved&&savedPw&&Date.now()-Number(saved)<AUTH_EXPIRE){
     sessionPassword=savedPw;
     document.getElementById('auth-screen').style.display='none';
+    init();
   } else {
     setTimeout(()=>document.getElementById('auth-input').focus(),300);
   }
