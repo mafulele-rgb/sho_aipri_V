@@ -673,21 +673,21 @@ async function exportTradeImage(){
     const imageUrls=[...new Set(trades.map(({item})=>item.image||'').filter(u=>u))];
     const b64Map={};
     if(imageUrls.length>0){
-      const res=await fetch(GAS_URL+'?'+new URLSearchParams({action:'proxyImages',urls:JSON.stringify(imageUrls)}));
+      const res=await fetch(GAS_URL+'?'+new URLSearchParams({action:'proxyImages',urls:JSON.stringify(imageUrls),password:sessionPassword}));
       const imgData=await res.json();
       Object.entries(imgData).forEach(([url,val])=>{
         if(val&&val.b64&&val.mime) b64Map[url]='data:'+val.mime+';base64,'+val.b64;
       });
     }
 
-    // Base64 imgタグでDIVを構成してhtml2canvasで撮影
+    // Base64 imgタグでDIVを構成
     const rows=trades.map(({danId,item,extras})=>{
       const chips=tradeMode==='trade'
         ?(extras||[]).map(p=>`<span style="display:inline-block;background:#fef3c7;color:#92400e;padding:1px 7px;border-radius:8px;font-size:10px;font-weight:500;margin:2px 2px 0 0">${p}+${item[p]-1}</span>`).join('')
         :PARTS.map(p=>`<span style="display:inline-block;background:#fce7f3;color:#9d174d;padding:1px 7px;border-radius:8px;font-size:10px;font-weight:500;margin:2px 2px 0 0">${p}</span>`).join('');
       const src=b64Map[item.image||'']||'';
       const imgTag=src
-        ?`<img src="${src}" style="width:52px;height:52px;border-radius:6px;object-fit:cover;flex-shrink:0">`
+        ?`<img src="${src}" style="width:52px;height:52px;border-radius:6px;object-fit:cover;flex-shrink:0" crossorigin="anonymous">`
         :`<div style="width:52px;height:52px;border-radius:6px;background:#fdf2f8;flex-shrink:0"></div>`;
       return `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:#fffbeb;border:1px solid #fde68a;border-radius:10px">
         ${imgTag}
@@ -705,26 +705,33 @@ async function exportTradeImage(){
       <div style="display:flex;flex-direction:column;gap:6px">${rows}</div>`;
     document.body.appendChild(wrap);
 
+    // 画像ロード完了を待つ
+    await Promise.all([...wrap.querySelectorAll('img')].map(img=>
+      new Promise(r=>{if(img.complete)r();else{img.onload=r;img.onerror=r;}})
+    ));
+
+    // scale:1で分割レンダリング→toBlob
     const canvas=await html2canvas(wrap,{
       backgroundColor:'#ffffff',
-      scale:2,
+      scale:1,
       useCORS:false,
-      allowTaint:false,
+      allowTaint:true,
       logging:false,
       imageTimeout:0,
     });
     document.body.removeChild(wrap);
     document.getElementById('export-overlay')?.remove();
 
-    const dataUrl=canvas.toDataURL('image/jpeg',0.92);
+    // toBlobで取得
+    const blob=await new Promise(r=>canvas.toBlob(r,'image/jpeg',0.92));
+    const dataUrl=await new Promise(r=>{const fr=new FileReader();fr.onload=e=>r(e.target.result);fr.readAsDataURL(blob);});
+
     const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent);
     const isPWA=window.navigator.standalone===true||window.matchMedia('(display-mode: standalone)').matches;
-    if(isIOS&&isPWA){
-      showPWAHint();
-    } else if(isIOS){
-      const w=window.open('');
-      w.document.write('<html><body style="margin:0"><img src="'+dataUrl+'" style="width:100%;display:block"><p style="text-align:center;font-family:sans-serif;padding:12px;color:#555">長押しして「写真に追加」で保存</p></body></html>');
-      w.document.close();
+
+    if(isIOS){
+      // iOSはimgタグで表示して長押し保存
+      showImagePreview(dataUrl);
     } else {
       const a=document.createElement('a');
       a.download='交換リスト.jpg';a.href=dataUrl;a.click();
